@@ -86,7 +86,7 @@ class ConfirmAccount(APIView):
 
 class AccountDetails(APIView):
     """
-    Класс для работы данными пользователя
+    Класс для работы с данными пользователя
     """
 
     # получить данные
