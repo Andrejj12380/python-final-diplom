@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-v*k1l+uaxexz(oyo4q#))$32d9wp#04*x&0)&xl0so_yniet!q
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -80,8 +80,8 @@ WSGI_APPLICATION = 'orders.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'orders_db',
-        'USER': 'postgres',
+        'NAME': 'orders',
+        'USER': os.getenv('USER_DB'),
         'PASSWORD': os.getenv('PASSWORD_DB'),
         'HOST': '127.0.0.1',
         'PORT': '5432',
