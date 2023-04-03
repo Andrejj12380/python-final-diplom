@@ -6,12 +6,16 @@ from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.db import IntegrityError
 from django.db.models import Q, Sum, F
-from django.http import JsonResponse, QueryDict
+from django.http import JsonResponse
+
+#from drf_spectacular.utils import extend_schema
+
 from requests import get
+
 from rest_framework.authtoken.models import Token
-from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from ujson import loads as load_json
 from yaml import load as load_yaml, Loader
 
@@ -19,14 +23,18 @@ from .models import Shop, Category, Product, ProductInfo, Parameter, ProductPara
     Contact, ConfirmEmailToken
 from .serializers import UserSerializer, CategorySerializer, ShopSerializer, ProductInfoSerializer, \
     OrderItemSerializer, OrderSerializer, ContactSerializer
-from .signals import new_user_registered, new_order
+# from signals import new_user_registered, new_order
+from .tasks import send_email
 
 
 class RegisterAccount(APIView):
     """
     Для регистрации покупателей
     """
+    throttle_scope = 'anon'
+
     # Регистрация методом POST
+
     def post(self, request, *args, **kwargs):
 
         # проверяем обязательные аргументы
@@ -53,6 +61,7 @@ class RegisterAccount(APIView):
                     user = user_serializer.save()
                     user.set_password(request.data['password'])
                     user.save()
+
                     return JsonResponse({'Status': True})
                 else:
                     return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
@@ -64,6 +73,8 @@ class ConfirmAccount(APIView):
     """
     Класс для подтверждения почтового адреса
     """
+    throttle_scope = 'anon'
+
     # Регистрация методом POST
     def post(self, request, *args, **kwargs):
 
@@ -85,8 +96,9 @@ class ConfirmAccount(APIView):
 
 class AccountDetails(APIView):
     """
-    Класс для работы с данными пользователя
+    Класс для работы данными пользователя
     """
+    throttle_scope = 'user'
 
     # получить данные
     def get(self, request, *args, **kwargs):
@@ -129,6 +141,8 @@ class LoginAccount(APIView):
     """
     Класс для авторизации пользователей
     """
+    throttle_scope = 'anon'
+
     # Авторизация методом POST
     def post(self, request, *args, **kwargs):
 
@@ -146,26 +160,42 @@ class LoginAccount(APIView):
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
 
 
-class CategoryView(ListAPIView):
+# class CategoryView(ListAPIView):
+#     """
+#     Класс для просмотра категорий
+#     """
+#     queryset = Category.objects.all()
+#     serializer_class = CategorySerializer
+
+class CategoryViewSet(ModelViewSet):
     """
     Класс для просмотра категорий
     """
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
+    ordering = ('name',)
+    throttle_scope = 'user'
 
 
-class ShopView(ListAPIView):
+class ShopViewSet(ModelViewSet):
     """
     Класс для просмотра списка магазинов
     """
-    queryset = Shop.objects.filter(state=True)
+    queryset = Shop.objects.all()
     serializer_class = ShopSerializer
+    ordering = ('name',)
+    throttle_scope = 'user'
 
 
-class ProductInfoView(APIView):
+class ProductInfoViewSet(ReadOnlyModelViewSet):
     """
     Класс для поиска товаров
     """
+    queryset = ProductInfo.objects.all()
+    serializer_class = ProductInfoSerializer
+    http_method_names = ['get', ]
+    throttle_scope = 'user'
+
     def get(self, request, *args, **kwargs):
 
         query = Q(shop__state=True)
@@ -193,6 +223,7 @@ class BasketView(APIView):
     """
     Класс для работы с корзиной пользователя
     """
+    throttle_scope = 'user'
 
     # получить корзину
     def get(self, request, *args, **kwargs):
@@ -287,12 +318,13 @@ class PartnerUpdate(APIView):
     """
     Класс для обновления прайса от поставщика
     """
+    throttle_scope = 'user_partner'
     def post(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
         if request.user.type != 'shop':
-            return JsonResponse({'Status': False, 'Error': 'Только для магазинов'}, status=403)
+            return JsonResponse({'Status': False, 'Error': 'exclusively for stores'}, status=403)
 
         url = request.data.get('url')
         if url:
@@ -337,6 +369,7 @@ class PartnerState(APIView):
     """
     Класс для работы со статусом поставщика
     """
+    throttle_scope = 'user_partner'
 
     # получить текущий статус
     def get(self, request, *args, **kwargs):
@@ -372,6 +405,8 @@ class PartnerOrders(APIView):
     """
     Класс для получения заказов поставщиками
     """
+    throttle_scope = 'user'
+
     def get(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
@@ -393,6 +428,7 @@ class ContactView(APIView):
     """
     Класс для работы с контактами покупателей
     """
+    throttle_scope = 'user'
 
     # получить мои контакты
     def get(self, request, *args, **kwargs):
@@ -465,6 +501,7 @@ class OrderView(APIView):
     """
     Класс для получения и размешения заказов пользователями
     """
+    throttle_scope = 'user'
 
     # получить мои заказы
     def get(self, request, *args, **kwargs):
@@ -496,7 +533,8 @@ class OrderView(APIView):
                     return JsonResponse({'Status': False, 'Errors': 'Неправильно указаны аргументы'})
                 else:
                     if is_updated:
-                        new_order.send(sender=self.__class__, user_id=request.user.id)
+                        send_email.delay('status update', 'Order created',
+                                         request.user.email)
                         return JsonResponse({'Status': True})
 
         return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
