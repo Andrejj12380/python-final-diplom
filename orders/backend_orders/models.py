@@ -33,7 +33,7 @@ class UserManager(BaseUserManager):
 
     def _create_user(self, email, password, **extra_fields):
         """
-        Create and save a user with the given username, email, and password.
+        Создает и сохраняет пользователя с заданным email и паролем.
         """
         if not email:
             raise ValueError('The given email must be set')
@@ -44,11 +44,17 @@ class UserManager(BaseUserManager):
         return user
 
     def create_user(self, email, password=None, **extra_fields):
+        """
+        Создает и сохраняет пользователя с обычными правами доступа.
+        """
         extra_fields.setdefault('is_staff', False)
         extra_fields.setdefault('is_superuser', False)
         return self._create_user(email, password, **extra_fields)
 
     def create_superuser(self, email, password, **extra_fields):
+        """
+        Создает и сохраняет суперпользователя с правами администратора.
+        """
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
 
@@ -91,9 +97,15 @@ class User(AbstractUser):
     type = models.CharField(verbose_name='Тип пользователя', choices=USER_TYPE_CHOICES, max_length=5, default='buyer')
 
     def __str__(self):
+        """
+        Возвращает полное имя пользователя в виде строки
+        """
         return f'{self.first_name} {self.last_name}'
 
     class Meta:
+        """
+        Мета-класс модели User, задает название и сортировку
+        """
         verbose_name = 'Пользователь'
         verbose_name_plural = "Список пользователей"
         ordering = ('email',)
@@ -106,7 +118,9 @@ class ConfirmEmailToken(models.Model):
 
     @staticmethod
     def generate_key():
-        """ generates a pseudo random code using os.urandom and binascii.hexlify """
+        """
+        Статический метод, который генерирует псевдослучайный код, используя os.urandom и binascii.hexlify
+        """
         return get_token_generator().generate_token()
 
     user = models.ForeignKey(
@@ -130,15 +144,30 @@ class ConfirmEmailToken(models.Model):
     )
 
     def save(self, *args, **kwargs):
+        """
+        Метод для сохранения токена. Если ключ еще не был сгенерирован, то он будет сгенерирован в момент сохранения
+        """
         if not self.key:
             self.key = self.generate_key()
         return super(ConfirmEmailToken, self).save(*args, **kwargs)
 
     def __str__(self):
+        """
+        Метод для представления объекта в виде строки
+        """
         return f"Password reset token for user {self.user}"
 
 
 class Shop(models.Model):
+    """
+    Модель магазина.
+
+    Атрибуты:
+        name (str): название магазина
+        url (str): ссылка на магазин
+        user (User): пользователь, которому принадлежит магазин
+        state (bool): статус получения заказов
+    """
     name = models.CharField(max_length=50, verbose_name='Название')
     url = models.URLField(verbose_name='Ссылка', null=True, blank=True)
     user = models.OneToOneField(User, verbose_name='Пользователь',
@@ -158,6 +187,13 @@ class Shop(models.Model):
 
 
 class Category(models.Model):
+    """
+    Модель категории.
+
+    Атрибуты:
+        name (str): название категории
+        shops (QuerySet): связанные магазины
+    """
     name = models.CharField(max_length=40, verbose_name='Название')
     shops = models.ManyToManyField(Shop, verbose_name='Магазины', related_name='categories', blank=True)
 
@@ -171,6 +207,13 @@ class Category(models.Model):
 
 
 class Product(models.Model):
+    """
+    Модель продукта.
+
+    Атрибуты:
+        name (str): название продукта
+        category (Category): категория продукта
+    """
     name = models.CharField(max_length=80, verbose_name='Название')
     category = models.ForeignKey(Category, verbose_name='Категория', related_name='products', blank=True,
                                  on_delete=models.CASCADE)
@@ -185,6 +228,18 @@ class Product(models.Model):
 
 
 class ProductInfo(models.Model):
+    """
+    Модель информации о продукте.
+
+    Атрибуты:
+        model (str): модель продукта
+        external_id (int): внешний идентификатор продукта
+        product (Product): продукт, к которому относится информация
+        shop (Shop): магазин, в котором доступна информация
+        quantity (int): количество товара в наличии
+        price (int): цена товара
+        price_rrc (int): рекомендуемая розничная цена
+    """
     model = models.CharField(max_length=80, verbose_name='Модель', blank=True)
     external_id = models.PositiveIntegerField(verbose_name='Внешний ИД')
     product = models.ForeignKey(Product, verbose_name='Продукт', related_name='product_infos', blank=True,
@@ -204,6 +259,11 @@ class ProductInfo(models.Model):
 
 
 class Parameter(models.Model):
+    """
+    Модель параметра, хранящего имя параметра.
+    Атрибуты:
+        name (str): название параметра
+    """
     name = models.CharField(max_length=40, verbose_name='Название')
 
     class Meta:
@@ -212,10 +272,20 @@ class Parameter(models.Model):
         ordering = ('-name',)
 
     def __str__(self):
+        """
+        Метод, возвращающий название параметра в виде строки.
+        """
         return self.name
 
 
 class ProductParameter(models.Model):
+    """
+    Модель параметра продукта.
+    Атрибуты:
+        product_info (ProductInfo): информация о продукте
+        parameter (Parameter): параметр продукта
+        value (str): значение параметра продукта
+    """
     product_info = models.ForeignKey(ProductInfo, verbose_name='Информация о продукте',
                                      related_name='product_parameters', blank=True,
                                      on_delete=models.CASCADE)
@@ -232,6 +302,18 @@ class ProductParameter(models.Model):
 
 
 class Contact(models.Model):
+    """
+    Модель контакта пользователя.
+    Атрибуты:
+        user (User): пользователь, которому принадлежат контакты
+        city (str): город проживания пользователя
+        street (str): улица проживания пользователя
+        house (str): номер дома проживания пользователя
+        structure (str): номер корпуса проживания пользователя
+        building (str): номер строения проживания пользователя
+        apartment (str): номер квартиры проживания пользователя
+        phone (str): телефон пользователя
+    """
     user = models.ForeignKey(User, verbose_name='Пользователь',
                              related_name='contacts', blank=True,
                              on_delete=models.CASCADE)
@@ -249,10 +331,21 @@ class Contact(models.Model):
         verbose_name_plural = "Список контактов пользователя"
 
     def __str__(self):
+        """
+        Метод, возвращающий строковое представление контакта в виде "Город Улица Дом".
+        """
         return f'{self.city} {self.street} {self.house}'
 
 
 class Order(models.Model):
+    """
+    Модель заказа.
+    Атрибуты:
+        user (User): пользователь, который сделал заказ
+        dt (datetime): дата и время оформления заказа
+        state (str): состояние заказа из предопределенного списка состояний
+        contact (Contact): контактные данные пользователя, указанные при оформлении заказа
+    """
     user = models.ForeignKey(User, verbose_name='Пользователь',
                              related_name='orders', blank=True,
                              on_delete=models.CASCADE)
@@ -272,6 +365,13 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
+    """
+    Модель позиции заказа.
+    Атрибуты:
+        order (Order): заказ, к которому относится позиция
+        product_info (ProductInfo): информация о продукте, связанная с позицией
+        quantity (int): количество заказанного продукта
+    """
     order = models.ForeignKey(Order, verbose_name='Заказ', related_name='ordered_items', blank=True,
                               on_delete=models.CASCADE)
 
@@ -286,6 +386,3 @@ class OrderItem(models.Model):
         constraints = [
             models.UniqueConstraint(fields=['order_id', 'product_info'], name='unique_order_item'),
         ]
-
-
-
