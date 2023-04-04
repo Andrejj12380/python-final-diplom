@@ -37,6 +37,16 @@ class RegisterAccount(APIView):
 
     def post(self, request, *args, **kwargs):
 
+        """
+        Регистрирует нового пользователя.
+
+        Parameters:
+        request (HttpRequest): запрос, содержащий данные пользователя
+
+        Returns:
+        JsonResponse: статус регистрации и список ошибок (если они есть)
+        """
+
         # проверяем обязательные аргументы
         if {'first_name', 'last_name', 'email', 'password', 'company', 'position'}.issubset(request.data):
             errors = {}
@@ -71,13 +81,30 @@ class RegisterAccount(APIView):
 
 class ConfirmAccount(APIView):
     """
-    Класс для подтверждения почтового адреса
+    Класс для подтверждения почтового адреса.
+
+    throttle_scope: Скорость ограничена только анонимными пользователями.
+
+    Регистрация методом POST. Для подтверждения почтового адреса требуется передать email и token.
+
+    Возвращает JSON ответ с полем Status. Если подтверждение прошло успешно, то Status=True.
+    В противном случае Status=False и возвращается сообщение об ошибке.
     """
     throttle_scope = 'anon'
 
     # Регистрация методом POST
     def post(self, request, *args, **kwargs):
+        """
+        Подтверждение почтового адреса.
 
+        params:
+        - email: email-адрес пользователя.
+        - token: токен подтверждения.
+
+        returns:
+        - Status: True, если почтовый адрес успешно подтвержден, иначе False.
+        - Errors: текст ошибки, если есть.
+        """
         # проверяем обязательные аргументы
         if {'email', 'token'}.issubset(request.data):
 
@@ -102,6 +129,14 @@ class AccountDetails(APIView):
 
     # получить данные
     def get(self, request, *args, **kwargs):
+        """
+        Получение данных пользователя
+
+        :param request: объект запроса
+        :param args: позиционные аргументы
+        :param kwargs: именованные аргументы
+        :return: ответ сервера с данными пользователя
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
@@ -110,6 +145,14 @@ class AccountDetails(APIView):
 
     # Редактирование методом POST
     def post(self, request, *args, **kwargs):
+        """
+        Редактирование данных пользователя
+
+        :param request: объект запроса
+        :param args: позиционные аргументы
+        :param kwargs: именованные аргументы
+        :return: ответ сервера с результатом редактирования данных пользователя
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
         # проверяем обязательные аргументы
@@ -145,6 +188,17 @@ class LoginAccount(APIView):
 
     # Авторизация методом POST
     def post(self, request, *args, **kwargs):
+        """
+         Авторизует пользователя по email и паролю.
+
+         Args:
+             request (Request): Объект запроса Django.
+             args: Аргументы.
+             kwargs: Ключевые аргументы.
+
+         Returns:
+             JsonResponse: Ответ в формате JSON с токеном доступа при успешной авторизации или ошибкой.
+         """
 
         if {'email', 'password'}.issubset(request.data):
             user = authenticate(request, username=request.data['email'], password=request.data['password'])
@@ -197,7 +251,17 @@ class ProductInfoViewSet(ReadOnlyModelViewSet):
     throttle_scope = 'user'
 
     def get(self, request, *args, **kwargs):
+        """
+        Получает список товаров в соответствии с параметрами.
 
+        Args:
+            request (Request): Объект запроса Django.
+            args: Аргументы.
+            kwargs: Ключевые аргументы.
+
+        Returns:
+            Response: Ответ в формате JSON со списком товаров или ошибкой.
+        """
         query = Q(shop__state=True)
         shop_id = request.query_params.get('shop_id')
         category_id = request.query_params.get('category_id')
@@ -227,6 +291,17 @@ class BasketView(APIView):
 
     # получить корзину
     def get(self, request, *args, **kwargs):
+        """
+        Получить корзину пользователя
+
+        Params:
+        request: HttpRequest
+            Объект HttpRequest
+
+        Returns:
+        Response
+            Объект Response с данными корзины
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
         basket = Order.objects.filter(
@@ -240,6 +315,17 @@ class BasketView(APIView):
 
     # редактировать корзину
     def post(self, request, *args, **kwargs):
+        """
+        Редактировать корзину пользователя
+
+        Params:
+        request: HttpRequest
+            Объект HttpRequest
+
+        Returns:
+        Response
+            Объект Response с результатом редактирования корзины
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
@@ -272,6 +358,17 @@ class BasketView(APIView):
 
     # удалить товары из корзины
     def delete(self, request, *args, **kwargs):
+        """
+        Удалить товары из корзины пользователя
+
+        Params:
+        request: HttpRequest
+            Объект HttpRequest
+
+        Returns:
+        Response
+            Объект Response с результатом удаления товаров из корзины
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
@@ -293,6 +390,17 @@ class BasketView(APIView):
 
     # добавить позиции в корзину
     def put(self, request, *args, **kwargs):
+        """
+        Обновляет количество объектов в корзине пользователя.
+
+        Params:
+        request: HttpRequest
+            Объект HttpRequest, содержащий данные о корзине пользователя.
+
+        Returns:
+        JsonResponse
+            JSON-ответ с результатом обновления объектов в корзине.
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
@@ -320,6 +428,17 @@ class PartnerUpdate(APIView):
     """
     throttle_scope = 'user_partner'
     def post(self, request, *args, **kwargs):
+        """
+        Обновить прайс от поставщика
+
+        Params:
+        request: HttpRequest
+            Объект HttpRequest
+
+        Returns:
+        JsonResponse
+            Объект JsonResponse с результатом обновления прайса
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
@@ -373,6 +492,13 @@ class PartnerState(APIView):
 
     # получить текущий статус
     def get(self, request, *args, **kwargs):
+        """
+        Метод для получения текущего статуса.
+        :param request: объект запроса
+        :param args: дополнительные аргументы
+        :param kwargs: дополнительные именованные аргументы
+        :return: объект ответа в формате JSON с данными текущего статуса магазина или сообщением об ошибке.
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
@@ -385,6 +511,13 @@ class PartnerState(APIView):
 
     # изменить текущий статус
     def post(self, request, *args, **kwargs):
+        """
+         Метод для изменения текущего статуса.
+         :param request: объект запроса
+         :param args: дополнительные аргументы
+         :param kwargs: дополнительные именованные аргументы
+         :return: объект ответа в формате JSON с сообщением об успешном выполнении или сообщением об ошибке.
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
@@ -408,6 +541,14 @@ class PartnerOrders(APIView):
     throttle_scope = 'user'
 
     def get(self, request, *args, **kwargs):
+        """
+        Получить заказы поставщиков.
+
+        :param request: объект запроса
+        :param args: дополнительные аргументы
+        :param kwargs: дополнительные именованные аргументы
+        :return: объект ответа в формате JSON со списком заказов или сообщением об ошибке.
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
@@ -432,6 +573,12 @@ class ContactView(APIView):
 
     # получить мои контакты
     def get(self, request, *args, **kwargs):
+        """
+        Получить список контактов пользователя
+
+        Returns:
+            JsonResponse: Список контактов пользователя
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
         contact = Contact.objects.filter(
@@ -441,6 +588,15 @@ class ContactView(APIView):
 
     # добавить новый контакт
     def post(self, request, *args, **kwargs):
+        """
+        Добавить новый контакт пользователя
+
+        Args:
+            request: Запрос с информацией о контакте
+
+        Returns:
+            JsonResponse: Сообщение о статусе операции
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
@@ -459,6 +615,15 @@ class ContactView(APIView):
 
     # удалить контакт
     def delete(self, request, *args, **kwargs):
+        """
+        Удалить контакты пользователя
+
+        Args:
+            request: Запрос с идентификаторами контактов
+
+        Returns:
+            JsonResponse: Сообщение о статусе операции
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
@@ -479,6 +644,15 @@ class ContactView(APIView):
 
     # редактировать контакт
     def put(self, request, *args, **kwargs):
+        """
+        Редактировать контакт пользователя
+
+        Args:
+            request: Запрос с информацией о контакте
+
+        Returns:
+            JsonResponse: Сообщение о статусе операции
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
@@ -505,6 +679,13 @@ class OrderView(APIView):
 
     # получить мои заказы
     def get(self, request, *args, **kwargs):
+        """
+        Получает список заказов пользователя.
+        :param request: Запрос, переданный клиентом.
+        :param args: Аргументы запроса.
+        :param kwargs: Ключевые аргументы запроса.
+        :return: Список заказов пользователя.
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
         order = Order.objects.filter(
@@ -518,6 +699,13 @@ class OrderView(APIView):
 
     # разместить заказ из корзины
     def post(self, request, *args, **kwargs):
+        """
+        Размещает заказ из корзины пользователя.
+        :param request: Запрос, переданный клиентом.
+        :param args: Аргументы запроса.
+        :param kwargs: Ключевые аргументы запроса.
+        :return: Статус заказа.
+        """
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
