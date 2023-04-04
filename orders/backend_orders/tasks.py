@@ -12,6 +12,16 @@ from .models import Shop, Category, ProductInfo, Product, Parameter, ProductPara
 
 @shared_task()
 def send_email(title, message, email, *args, **kwargs):
+    """
+    Отправляет email сообщение
+
+    :param title: Заголовок письма
+    :param message: Тело письма
+    :param email: Email-адрес получателя
+    :param args: Аргументы
+    :param kwargs: Ключевые аргументы
+    :return: Строка с информацией о письме
+    """
     email_list = list()
     email_list.append(email)
     try:
@@ -24,6 +34,13 @@ def send_email(title, message, email, *args, **kwargs):
 
 @shared_task()
 def get_import(partner, url):
+    """
+    Получает данные из YAML-файла и импортирует в базу данных.
+
+    :param partner: Идентификатор пользователя
+    :param url: URL YAML-файла
+    :return: Словарь со статусом выполнения операции и информацией об ошибках
+    """
     if url:
         validate_url = URLValidator()
         try:
